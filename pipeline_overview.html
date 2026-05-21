@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Intel Image Classification — CNN Pipeline</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+
+  :root{
+    --bg:#0a0c0f;
+    --surface:#111418;
+    --card:#161b22;
+    --border:#21262d;
+    --accent:#58a6ff;
+    --accent2:#3fb950;
+    --accent3:#f78166;
+    --accent4:#d2a8ff;
+    --accent5:#ffa657;
+    --text:#e6edf3;
+    --muted:#8b949e;
+    --dim:#484f58;
+  }
+
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'DM Sans',sans-serif;
+    font-size:14px;
+    line-height:1.6;
+    min-width:900px;
+  }
+
+  .page{
+    max-width:1100px;
+    margin:0 auto;
+    padding:48px 40px 64px;
+  }
+
+  /* ── HEADER ── */
+  .header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    margin-bottom:48px;
+    gap:24px;
+  }
+  .header-left{}
+  .chip{
+    display:inline-block;
+    background:#1f2733;
+    border:1px solid var(--accent);
+    color:var(--accent);
+    font-family:'Space Mono',monospace;
+    font-size:11px;
+    letter-spacing:.08em;
+    padding:4px 10px;
+    border-radius:4px;
+    margin-bottom:14px;
+  }
+  .header h1{
+    font-family:'Space Mono',monospace;
+    font-size:28px;
+    font-weight:700;
+    line-height:1.2;
+    color:var(--text);
+    margin-bottom:8px;
+  }
+  .header h1 span{color:var(--accent)}
+  .subtitle{
+    font-size:15px;
+    color:var(--muted);
+    max-width:480px;
+    line-height:1.6;
+  }
+  .badges{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    flex-shrink:0;
+    align-items:flex-end;
+    padding-top:8px;
+  }
+  .badge{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:6px 14px;
+    font-family:'Space Mono',monospace;
+    font-size:11px;
+    color:var(--muted);
+    white-space:nowrap;
+  }
+  .badge b{color:var(--text);font-weight:700}
+
+  /* ── CLASSES STRIP ── */
+  .classes-strip{
+    display:flex;
+    gap:8px;
+    margin-bottom:40px;
+    flex-wrap:wrap;
+  }
+  .cls{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:8px 16px;
+    flex:1;
+    min-width:120px;
+  }
+  .cls-dot{
+    width:10px;height:10px;border-radius:50%;flex-shrink:0;
+  }
+  .cls span{font-size:13px;font-weight:500;color:var(--text)}
+  .cls small{font-size:11px;color:var(--muted)}
+
+  /* ── SECTION LABEL ── */
+  .section-label{
+    font-family:'Space Mono',monospace;
+    font-size:10px;
+    letter-spacing:.15em;
+    text-transform:uppercase;
+    color:var(--dim);
+    margin-bottom:16px;
+    padding-bottom:8px;
+    border-bottom:1px solid var(--border);
+  }
+
+  /* ── PIPELINE ── */
+  .pipeline{
+    display:flex;
+    align-items:stretch;
+    gap:0;
+    margin-bottom:40px;
+    position:relative;
+  }
+  .pipe-step{
+    flex:1;
+    position:relative;
+  }
+  .pipe-card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-right:none;
+    padding:16px 14px;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    position:relative;
+    z-index:1;
+  }
+  .pipe-step:first-child .pipe-card{border-radius:8px 0 0 8px}
+  .pipe-step:last-child .pipe-card{border-radius:0 8px 8px 0;border-right:1px solid var(--border)}
+  .pipe-num{
+    font-family:'Space Mono',monospace;
+    font-size:10px;
+    color:var(--dim);
+    margin-bottom:2px;
+  }
+  .pipe-icon{
+    font-size:18px;
+    margin-bottom:4px;
+    line-height:1;
+  }
+  .pipe-title{
+    font-size:12px;
+    font-weight:600;
+    color:var(--text);
+    line-height:1.3;
+  }
+  .pipe-desc{
+    font-size:11px;
+    color:var(--muted);
+    line-height:1.4;
+  }
+  .pipe-arrow{
+    position:absolute;
+    right:-10px;
+    top:50%;
+    transform:translateY(-50%);
+    z-index:10;
+    color:var(--dim);
+    font-size:16px;
+    line-height:1;
+  }
+  .pipe-step:last-child .pipe-arrow{display:none}
+  .pipe-highlight .pipe-card{
+    border-color:var(--accent);
+    background:#0d1726;
+  }
+  .pipe-highlight .pipe-num,.pipe-highlight .pipe-title{color:var(--accent)}
+
+  /* ── TWO-COL ── */
+  .two-col{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    margin-bottom:40px;
+  }
+  .three-col{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:20px;
+    margin-bottom:40px;
+  }
+
+  /* ── CARD ── */
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:20px;
+  }
+  .card-title{
+    font-family:'Space Mono',monospace;
+    font-size:11px;
+    color:var(--muted);
+    letter-spacing:.06em;
+    margin-bottom:14px;
+  }
+
+  /* ── ARCH TABLE ── */
+  .arch-table{width:100%;border-collapse:collapse}
+  .arch-table tr{border-bottom:1px solid var(--border)}
+  .arch-table tr:last-child{border-bottom:none}
+  .arch-table td{
+    padding:8px 6px;
+    font-size:12px;
+    vertical-align:middle;
+  }
+  .arch-table td:first-child{
+    font-family:'Space Mono',monospace;
+    font-size:11px;
+    color:var(--accent4);
+    white-space:nowrap;
+    width:1%;
+    padding-right:12px;
+  }
+  .arch-table td:last-child{
+    color:var(--muted);
+    font-size:11px;
+    text-align:right;
+  }
+  .arch-table .sep td{
+    padding:4px 0;
+    background:none;
+    border-bottom:1px dashed var(--border);
+  }
+  .arch-table .sep td span{
+    font-size:10px;
+    color:var(--dim);
+    font-family:'Space Mono',monospace;
+    letter-spacing:.05em;
+  }
+  .layer-name{
+    color:var(--text);
+    font-weight:500;
+  }
+
+  /* ── AUGMENTATION LIST ── */
+  .aug-list{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .aug-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:12px;
+  }
+  .aug-bar-wrap{
+    flex:1;
+    height:4px;
+    background:var(--border);
+    border-radius:2px;
+    overflow:hidden;
+  }
+  .aug-bar{
+    height:100%;
+    border-radius:2px;
+    background:var(--accent2);
+  }
+  .aug-val{
+    font-family:'Space Mono',monospace;
+    font-size:10px;
+    color:var(--muted);
+    width:34px;
+    text-align:right;
+    flex-shrink:0;
+  }
+  .aug-name{
+    color:var(--text);
+    width:120px;
+    flex-shrink:0;
+  }
+
+  /* ── HYPER PARAMS ── */
+  .hparam-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .hparam{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:10px 12px;
+  }
+  .hparam-key{
+    font-size:10px;
+    color:var(--muted);
+    margin-bottom:4px;
+    font-family:'Space Mono',monospace;
+    letter-spacing:.05em;
+  }
+  .hparam-val{
+    font-size:16px;
+    font-weight:600;
+    color:var(--text);
+    font-family:'Space Mono',monospace;
+  }
+  .hparam-val.accent{color:var(--accent)}
+  .hparam-val.green{color:var(--accent2)}
+  .hparam-val.orange{color:var(--accent5)}
+
+  /* ── CALLBACKS ── */
+  .callback-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:12px 14px;
+    margin-bottom:8px;
+  }
+  .callback-card:last-child{margin-bottom:0}
+  .cb-name{
+    font-family:'Space Mono',monospace;
+    font-size:11px;
+    color:var(--accent4);
+    margin-bottom:4px;
+  }
+  .cb-desc{font-size:12px;color:var(--muted);line-height:1.4}
+  .cb-param{
+    display:inline-block;
+    margin-top:6px;
+    font-family:'Space Mono',monospace;
+    font-size:10px;
+    background:#1f1a2e;
+    color:var(--accent4);
+    padding:2px 8px;
+    border-radius:4px;
+    border:1px solid #3a2f5c;
+  }
+  .cb-param.green{background:#0f1e13;color:var(--accent2);border-color:#1a3d22}
+
+  /* ── METRICS ── */
+  .metric-row{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .metric-item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    font-size:12px;
+  }
+  .metric-label{
+    width:110px;
+    flex-shrink:0;
+    color:var(--text);
+    font-weight:500;
+  }
+  .metric-tag{
+    display:inline-block;
+    font-family:'Space Mono',monospace;
+    font-size:10px;
+    padding:2px 8px;
+    border-radius:4px;
+    border:1px solid;
+  }
+  .mt-blue{background:#0d1726;color:var(--accent);border-color:#1a3050}
+  .mt-green{background:#0f1e13;color:var(--accent2);border-color:#1a3d22}
+  .mt-orange{background:#1e1507;color:var(--accent5);border-color:#3d2b0d}
+  .mt-red{background:#1e0f0f;color:var(--accent3);border-color:#3d1f1f}
+  .metric-note{font-size:11px;color:var(--muted)}
+
+  /* ── CONFUSION INFO ── */
+  .conf-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  .conf-item{
+    background:var(--surface);
+    border-radius:6px;
+    border:1px solid var(--border);
+    padding:10px 12px;
+  }
+  .conf-label{font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;margin-bottom:4px}
+  .conf-val{font-size:12px;color:var(--text);line-height:1.4}
+  .conf-val.ok{color:var(--accent2)}
+  .conf-val.warn{color:var(--accent5)}
+
+  /* ── FOOTER ── */
+  .footer{
+    margin-top:48px;
+    padding-top:20px;
+    border-top:1px solid var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .footer-left{
+    font-family:'Space Mono',monospace;
+    font-size:10px;
+    color:var(--dim);
+    letter-spacing:.08em;
+  }
+  .footer-right{
+    display:flex;
+    gap:16px;
+  }
+  .footer-tag{
+    font-size:11px;
+    color:var(--dim);
+    font-family:'Space Mono',monospace;
+  }
+  .footer-tag b{color:var(--muted)}
+
+  /* ── DIVIDER ── */
+  .divider{height:1px;background:var(--border);margin:32px 0}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="chip">DL ASSIGNMENT 1 · TENSORFLOW/KERAS</div>
+      <h1>Intel Image<br><span>Classification</span></h1>
+      <p class="subtitle">A CNN built from scratch to classify natural scene images into 6 categories using the Intel Image Classification dataset.</p>
+    </div>
+    <div class="badges">
+      <div class="badge"><b>~25,000</b> training images</div>
+      <div class="badge"><b>6</b> scene categories</div>
+      <div class="badge"><b>150 × 150</b> px input</div>
+      <div class="badge"><b>3</b> conv blocks</div>
+      <div class="badge">Kaggle dataset</div>
+    </div>
+  </div>
+
+  <!-- CLASSES -->
+  <div class="section-label">Dataset — 6 scene classes</div>
+  <div class="classes-strip">
+    <div class="cls"><div class="cls-dot" style="background:#58a6ff"></div><div><span>Buildings</span><br><small>Urban structures</small></div></div>
+    <div class="cls"><div class="cls-dot" style="background:#3fb950"></div><div><span>Forest</span><br><small>Tree canopies</small></div></div>
+    <div class="cls"><div class="cls-dot" style="background:#a5d6ff"></div><div><span>Glacier</span><br><small>Ice & snow</small></div></div>
+    <div class="cls"><div class="cls-dot" style="background:#d2a8ff"></div><div><span>Mountain</span><br><small>Rock terrain</small></div></div>
+    <div class="cls"><div class="cls-dot" style="background:#ffa657"></div><div><span>Sea</span><br><small>Ocean & water</small></div></div>
+    <div class="cls"><div class="cls-dot" style="background:#f78166"></div><div><span>Street</span><br><small>Road scenes</small></div></div>
+  </div>
+
+  <!-- PIPELINE STEPS -->
+  <div class="section-label">End-to-end pipeline</div>
+  <div class="pipeline">
+    <div class="pipe-step">
+      <div class="pipe-card">
+        <div class="pipe-num">01</div>
+        <div class="pipe-icon">📦</div>
+        <div class="pipe-title">Import Libraries</div>
+        <div class="pipe-desc">TF/Keras, sklearn, matplotlib, seaborn</div>
+      </div>
+      <div class="pipe-arrow">›</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-card">
+        <div class="pipe-num">02</div>
+        <div class="pipe-icon">⬇️</div>
+        <div class="pipe-title">Download Dataset</div>
+        <div class="pipe-desc">Kaggle API, ~350 MB zip</div>
+      </div>
+      <div class="pipe-arrow">›</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-card">
+        <div class="pipe-num">03</div>
+        <div class="pipe-icon">🔍</div>
+        <div class="pipe-title">Explore Data</div>
+        <div class="pipe-desc">Class distribution, sample images</div>
+      </div>
+      <div class="pipe-arrow">›</div>
+    </div>
+    <div class="pipe-step pipe-highlight">
+      <div class="pipe-card">
+        <div class="pipe-num">04</div>
+        <div class="pipe-icon">🔄</div>
+        <div class="pipe-title">Preprocess & Augment</div>
+        <div class="pipe-desc">Rescale + 5 augmentations, 80/20 split</div>
+      </div>
+      <div class="pipe-arrow">›</div>
+    </div>
+    <div class="pipe-step pipe-highlight">
+      <div class="pipe-card">
+        <div class="pipe-num">05</div>
+        <div class="pipe-icon">🧠</div>
+        <div class="pipe-title">Build CNN</div>
+        <div class="pipe-desc">3× Conv + Dense + Dropout(0.5)</div>
+      </div>
+      <div class="pipe-arrow">›</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-card">
+        <div class="pipe-num">06</div>
+        <div class="pipe-icon">⚙️</div>
+        <div class="pipe-title">Compile</div>
+        <div class="pipe-desc">Adam · CatCrossEntropy · Accuracy</div>
+      </div>
+      <div class="pipe-arrow">›</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-card">
+        <div class="pipe-num">07</div>
+        <div class="pipe-icon">🏋️</div>
+        <div class="pipe-title">Train</div>
+        <div class="pipe-desc">20 epochs, EarlyStopping, Checkpoint</div>
+      </div>
+      <div class="pipe-arrow">›</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-card">
+        <div class="pipe-num">08–12</div>
+        <div class="pipe-icon">📊</div>
+        <div class="pipe-title">Evaluate</div>
+        <div class="pipe-desc">Curves · Report · Confusion · Preds</div>
+      </div>
+      <div class="pipe-arrow">›</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ARCH + AUGMENTATION -->
+  <div class="two-col">
+    <div>
+      <div class="section-label">Model architecture</div>
+      <div class="card">
+        <table class="arch-table">
+          <tr class="sep"><td colspan="3"><span>Input block</span></td></tr>
+          <tr>
+            <td>Input</td>
+            <td class="layer-name">Image tensor</td>
+            <td>150×150×3</td>
+          </tr>
+          <tr class="sep"><td colspan="3"><span>Convolutional blocks ×3</span></td></tr>
+          <tr>
+            <td>Conv2D</td>
+            <td class="layer-name">32 filters, 3×3, ReLU</td>
+            <td>148×148×32</td>
+          </tr>
+          <tr>
+            <td>MaxPool</td>
+            <td class="layer-name">Pool 2×2</td>
+            <td>74×74×32</td>
+          </tr>
+          <tr>
+            <td>Conv2D</td>
+            <td class="layer-name">64 filters, 3×3, ReLU</td>
+            <td>72×72×64</td>
+          </tr>
+          <tr>
+            <td>MaxPool</td>
+            <td class="layer-name">Pool 2×2</td>
+            <td>36×36×64</td>
+          </tr>
+          <tr>
+            <td>Conv2D</td>
+            <td class="layer-name">128 filters, 3×3, ReLU</td>
+            <td>34×34×128</td>
+          </tr>
+          <tr>
+            <td>MaxPool</td>
+            <td class="layer-name">Pool 2×2</td>
+            <td>17×17×128</td>
+          </tr>
+          <tr class="sep"><td colspan="3"><span>Classifier head</span></td></tr>
+          <tr>
+            <td>Flatten</td>
+            <td class="layer-name">—</td>
+            <td>36,992</td>
+          </tr>
+          <tr>
+            <td>Dense</td>
+            <td class="layer-name">256 units, ReLU</td>
+            <td>256</td>
+          </tr>
+          <tr>
+            <td>Dropout</td>
+            <td class="layer-name">rate 0.5</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>Dense</td>
+            <td class="layer-name">6 units, Softmax</td>
+            <td>6</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Data augmentation (training only)</div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="aug-list">
+          <div class="aug-item">
+            <span class="aug-name">Rescale</span>
+            <div class="aug-bar-wrap"><div class="aug-bar" style="width:100%;background:var(--accent)"></div></div>
+            <span class="aug-val">÷255</span>
+          </div>
+          <div class="aug-item">
+            <span class="aug-name">Rotation range</span>
+            <div class="aug-bar-wrap"><div class="aug-bar" style="width:40%"></div></div>
+            <span class="aug-val">20°</span>
+          </div>
+          <div class="aug-item">
+            <span class="aug-name">Zoom range</span>
+            <div class="aug-bar-wrap"><div class="aug-bar" style="width:20%"></div></div>
+            <span class="aug-val">0.2×</span>
+          </div>
+          <div class="aug-item">
+            <span class="aug-name">Width shift</span>
+            <div class="aug-bar-wrap"><div class="aug-bar" style="width:20%"></div></div>
+            <span class="aug-val">0.2</span>
+          </div>
+          <div class="aug-item">
+            <span class="aug-name">Height shift</span>
+            <div class="aug-bar-wrap"><div class="aug-bar" style="width:20%"></div></div>
+            <span class="aug-val">0.2</span>
+          </div>
+          <div class="aug-item">
+            <span class="aug-name">Horizontal flip</span>
+            <div class="aug-bar-wrap"><div class="aug-bar" style="width:100%;background:var(--accent4)"></div></div>
+            <span class="aug-val">ON</span>
+          </div>
+          <div class="aug-item">
+            <span class="aug-name">Val split</span>
+            <div class="aug-bar-wrap"><div class="aug-bar" style="width:20%;background:var(--accent5)"></div></div>
+            <span class="aug-val">20%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">Training callbacks</div>
+      <div class="card">
+        <div class="callback-card">
+          <div class="cb-name">EarlyStopping</div>
+          <div class="cb-desc">Halts training when validation loss stops improving. Restores the best weights automatically.</div>
+          <span class="cb-param">monitor: val_loss</span>
+          <span class="cb-param">patience: 5</span>
+          <span class="cb-param">restore_best_weights</span>
+        </div>
+        <div class="callback-card">
+          <div class="cb-name">ModelCheckpoint</div>
+          <div class="cb-desc">Saves model weights to disk only when validation accuracy improves — guarantees best model is kept.</div>
+          <span class="cb-param green">monitor: val_accuracy</span>
+          <span class="cb-param green">save_best_only</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- HYPERPARAMS + EVALUATION -->
+  <div class="three-col">
+    <div>
+      <div class="section-label">Key hyperparameters</div>
+      <div class="card">
+        <div class="hparam-grid">
+          <div class="hparam">
+            <div class="hparam-key">Image size</div>
+            <div class="hparam-val accent">150²</div>
+          </div>
+          <div class="hparam">
+            <div class="hparam-key">Batch size</div>
+            <div class="hparam-val">32</div>
+          </div>
+          <div class="hparam">
+            <div class="hparam-key">Max epochs</div>
+            <div class="hparam-val">20</div>
+          </div>
+          <div class="hparam">
+            <div class="hparam-key">Dropout</div>
+            <div class="hparam-val orange">0.5</div>
+          </div>
+          <div class="hparam">
+            <div class="hparam-key">Optimizer</div>
+            <div class="hparam-val green" style="font-size:13px">Adam</div>
+          </div>
+          <div class="hparam">
+            <div class="hparam-key">Patience</div>
+            <div class="hparam-val">5</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Evaluation metrics used</div>
+      <div class="card">
+        <div class="metric-row">
+          <div class="metric-item">
+            <span class="metric-label">Accuracy / Loss</span>
+            <span class="metric-tag mt-blue">model.evaluate()</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Precision</span>
+            <span class="metric-tag mt-green">per class</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Recall</span>
+            <span class="metric-tag mt-green">per class</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">F1-Score</span>
+            <span class="metric-tag mt-orange">harmonic mean</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Confusion matrix</span>
+            <span class="metric-tag mt-red">heatmap</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Visual preds</span>
+            <span class="metric-tag mt-blue">10 samples</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Confusion matrix notes</div>
+      <div class="card">
+        <div class="conf-grid">
+          <div class="conf-item">
+            <div class="conf-label">Diagonal</div>
+            <div class="conf-val ok">Correct predictions</div>
+          </div>
+          <div class="conf-item">
+            <div class="conf-label">Off-diagonal</div>
+            <div class="conf-val warn">Misclassifications</div>
+          </div>
+          <div class="conf-item">
+            <div class="conf-label">Common error</div>
+            <div class="conf-val" style="font-size:11px">Glacier ↔ Mountain (similar textures)</div>
+          </div>
+          <div class="conf-item">
+            <div class="conf-label">Visualization</div>
+            <div class="conf-val" style="font-size:11px">Seaborn heatmap, Blues cmap</div>
+          </div>
+        </div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--muted);line-height:1.6">Test set is <b style="color:var(--text)">separate</b> from validation — drawn from <code style="font-size:10px;background:#1a1f27;padding:1px 5px;border-radius:3px">seg_test/seg_test</code>, not seen during training.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-left">INTEL IMAGE CLASSIFICATION · CNN FROM SCRATCH · DL ASSIGNMENT 1</div>
+    <div class="footer-right">
+      <div class="footer-tag"><b>TensorFlow</b> 2.x</div>
+      <div class="footer-tag"><b>Dataset</b> Kaggle / puneet6060</div>
+      <div class="footer-tag"><b>Framework</b> Keras Sequential</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
